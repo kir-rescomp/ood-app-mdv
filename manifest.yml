@@ -1,0 +1,9 @@
+---
+name: Multi-Dimensional Viewer (MDV)
+category: Interactive Apps
+subcategory: Servers
+role: batch_connect
+description: |
+  This app will launch MDV
+
+  [MDV]: https://mdv.ndm.ox.ac.uk/
