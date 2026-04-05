@@ -1,0 +1,162 @@
+Bootstrap: docker
+From: nikolaik/python-nodejs:python3.12-nodejs22
+
+# Build-time metadata (optional, pass with --build-arg equivalent via %arguments if needed)
+%labels
+    Apptainer Maintainer:  Dini Senanayake
+    Application Multi-Dimensional Viewer (MDV)
+    Source https://github.com/Taylor-CCB-Group/MDV
+
+%arguments
+    GIT_COMMIT_DATE=unknown
+    GIT_BRANCH_NAME=unknown
+    GIT_COMMIT_HASH=unknown
+    GIT_LAST_COMMIT_MESSAGE=unknown
+    BUILD_DATE=unknown
+    GIT_DIRTY=false
+
+%environment
+    # Vite build-time vars (only relevant if rebuilding frontend inside container)
+    export VITE_GIT_COMMIT_DATE="{{ GIT_COMMIT_DATE }}"
+    export VITE_GIT_BRANCH_NAME="{{ GIT_BRANCH_NAME }}"
+    export VITE_GIT_COMMIT_HASH="{{ GIT_COMMIT_HASH }}"
+    export VITE_GIT_LAST_COMMIT_MESSAGE="{{ GIT_LAST_COMMIT_MESSAGE }}"
+    export VITE_BUILD_DATE="{{ BUILD_DATE }}"
+    export VITE_GIT_DIRTY="{{ GIT_DIRTY }}"
+
+    # Python / Poetry
+    export PIP_PREFER_BINARY=1
+    export POETRY_VIRTUALENVS_IN_PROJECT=true
+    export PATH=/app/python/.venv/bin:$PATH
+    export PYTHONPATH=/app/python
+
+    # PostgreSQL embedded (paths relative to user's bind-mounted data dir)
+    export PGDATA=/mdv_data/pgdata
+    export PGHOST=/mdv_data/pgrun   # Unix socket dir - avoids TCP auth complexity
+    export PGPORT=5432
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    export PIP_PREFER_BINARY=1
+    export POETRY_VIRTUALENVS_IN_PROJECT=true
+
+    # ── System packages ──────────────────────────────────────────────────────
+    apt-get update && apt-get install -y \
+        libhdf5-dev \
+        netcat-openbsd \
+        iputils-ping \
+        telnet \
+        postgresql \
+        postgresql-client \
+        git \
+        curl \
+        ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+    # ── Clone MDV source ─────────────────────────────────────────────────────
+    # Pin to a specific tag/commit for reproducibility - adjust as needed
+    git clone --depth 1 https://github.com/Taylor-CCB-Group/MDV.git /app
+    # Alternatively, if building from a local checkout, use %files section below
+    # and comment out this git clone
+
+    # ── Configure Poetry (in-project venv so it's inside /app/python/.venv) ─
+    cd /app/python
+    poetry config virtualenvs.in-project true
+    # NOTE: running as root here; venv will be owned by root but readable by all
+    poetry install --with dev,backend,auth --no-root
+    # Quick sanity check
+    poetry run python -c "import flask; print('Flask OK')"
+
+    # ── npm install + frontend Vite build ────────────────────────────────────
+    cd /app
+    # npm needs a writable cache; point it to /tmp during build
+    npm install --cache /tmp/.npm-cache
+    npm run build-flask-dockerjs
+
+    # ── Install MDV Python package (now that source exists) ──────────────────
+    cd /app/python
+    poetry install --with dev,backend,auth
+
+    # ── Final Poetry install (root package now that src is present) ──────────
+    # Make venv world-readable so the runtime user can use it
+    chmod -R a+rX /app/python/.venv
+
+    # ── Permissions on app tree ──────────────────────────────────────────────
+    chmod -R a+rX /app
+    # /app/mdv is the data dir - will be REPLACED by a bind mount at runtime
+    mkdir -p /app/mdv
+    chmod 777 /app/mdv
+
+    # ── Helper: entrypoint script ────────────────────────────────────────────
+    cat > /usr/local/bin/mdv-start.sh << 'EOF'
+#!/bin/bash
+# MDV startup script for Apptainer/OOD
+# Expects MDV_DATA_DIR to be set (defaults to ~/mdv_data)
+# Expects PORT to be set by OOD (defaults to 5055)
+
+set -e
+
+MDV_DATA_DIR="${MDV_DATA_DIR:-${HOME}/mdv_data}"
+PORT="${PORT:-5055}"
+DB_USER="${DB_USER:-mdvuser}"
+DB_PASSWORD="${DB_PASSWORD:-mdvpass}"
+DB_NAME="${DB_NAME:-mdvdb}"
+PGDATA="${MDV_DATA_DIR}/pgdata"
+PGHOST="${MDV_DATA_DIR}/pgrun"   # Unix socket directory
+
+mkdir -p "${MDV_DATA_DIR}" "${PGDATA}" "${PGHOST}"
+
+# ── Start embedded PostgreSQL if not already running ─────────────────────────
+if ! pg_ctl status -D "${PGDATA}" > /dev/null 2>&1; then
+    echo "[mdv] Initialising PostgreSQL in ${PGDATA}..."
+    if [ ! -f "${PGDATA}/PG_VERSION" ]; then
+        initdb -D "${PGDATA}" --auth=trust --username="${DB_USER}" > /dev/null
+        # Tune for single-user embedded use
+        cat >> "${PGDATA}/postgresql.conf" << PGCONF
+unix_socket_directories = '${PGHOST}'
+listen_addresses = ''
+log_destination = 'stderr'
+logging_collector = off
+PGCONF
+    fi
+    pg_ctl start -D "${PGDATA}" -l "${MDV_DATA_DIR}/pg.log" -w -t 30
+    sleep 1
+    # Create DB if needed
+    createdb -h "${PGHOST}" -U "${DB_USER}" "${DB_NAME}" 2>/dev/null || true
+fi
+
+echo "[mdv] PostgreSQL running via socket at ${PGHOST}"
+
+# ── Export DB connection vars for Flask ──────────────────────────────────────
+export DB_HOST="${PGHOST}"   # libpq uses this as socket dir when no port in host
+export DB_USER="${DB_USER}"
+export DB_PASSWORD="${DB_PASSWORD}"
+export DB_NAME="${DB_NAME}"
+# Construct the SQLAlchemy URL; adjust dialect if MDV uses a different env var
+export DATABASE_URL="postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@/${DB_NAME}?host=${PGHOST}"
+export FLASK_ENV="${FLASK_ENV:-production}"
+export PYTHONUNBUFFERED=1
+
+# ── Start Gunicorn ────────────────────────────────────────────────────────────
+echo "[mdv] Starting MDV on port ${PORT}..."
+cd /app/python
+exec poetry run gunicorn \
+    -k gevent \
+    -t 0 \
+    -w 1 \
+    -b "0.0.0.0:${PORT}" \
+    --capture-output \
+    --log-level info \
+    mdvtools.dbutils.safe_mdv_app:app
+EOF
+
+    chmod +x /usr/local/bin/mdv-start.sh
+
+%runscript
+    exec /usr/local/bin/mdv-start.sh "$@"
+
+%test
+    # Basic smoke test during build
+    /app/python/.venv/bin/python -c "import mdvtools; print('mdvtools importable')" || \
+        echo "WARN: mdvtools import test failed - check build"
