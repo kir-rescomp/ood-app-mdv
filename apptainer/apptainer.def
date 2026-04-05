@@ -35,6 +35,11 @@ From: nikolaik/python-nodejs:python3.12-nodejs22
     export PGHOST=/mdv_data/pgrun   # Unix socket dir - avoids TCP auth complexity
     export PGPORT=5432
 
+    # add LOCALE
+    export LANG=C
+    export LC_ALL=C
+
+
 %post
     export DEBIAN_FRONTEND=noninteractive
     export PIP_PREFER_BINARY=1
