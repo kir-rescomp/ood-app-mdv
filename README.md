@@ -1,7 +1,7 @@
 # Multi-Dimensional Viewer (MDV) app for BMRC OOD
 
 <p align="center">
-<img src="icon.png" alt="icon" width="300"/>
+<img src="icon.png" alt="icon" width="400"/>
 </p>
 
 # License & Attribution
