@@ -16,14 +16,22 @@ FLASK_HOST = '127.0.0.1'
 FLASK_PORT = int(os.environ['FLASK_PORT'])
 BIND_PORT  = int(os.environ['BIND_PORT'])
 
+# Following is to fix https://github.com/kir-rescomp/ood-app-mdv/issues/18
+RNODE_PREFIX = os.environ.get('RNODE_PREFIX', '') 
+
+# Absolute rewrite: /flask/ → /rnode/<host>/<port>/flask/
+# This works regardless of the page's current sub-path depth
+_prefix = ('/rnode/' + RNODE_PREFIX + '/flask/').encode()
+
 REWRITE_PAIRS = [
-    (b'href="/flask/',  b'href="flask/'),
-    (b"href='/flask/",  b"href='flask/"),
-    (b'src="/flask/',   b'src="flask/'),
-    (b"src='/flask/",   b"src='flask/"),
-    (b'url("/flask/',   b'url("flask/'),
-    (b"url('/flask/",   b"url('flask/"),
+    (b'href="/flask/',  b'href="' + _prefix),
+    (b"href='/flask/",  b"href='" + _prefix),
+    (b'src="/flask/',   b'src="'  + _prefix),
+    (b"src='/flask/",   b"src='"  + _prefix),
+    (b'url("/flask/',   b'url("'  + _prefix),
+    (b"url('/flask/",   b"url('"  + _prefix),
 ]
+
 
 HOP_BY_HOP = {'connection','keep-alive','transfer-encoding','te',
                'trailer','upgrade','proxy-authorization','proxy-authenticate'}

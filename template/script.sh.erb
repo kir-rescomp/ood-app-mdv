@@ -51,5 +51,7 @@ for i in $(seq 1 90); do
 done
 
 # Start the path-rewriting proxy on BIND_PORT (OOD connects here)
-FLASK_PORT=${FLASK_PORT} BIND_PORT=${BIND_PORT} \
+FLASK_PORT=${FLASK_PORT} \
+BIND_PORT=${BIND_PORT} \
+RNODE_PREFIX="${host}/${BIND_PORT}" \
     python3 "<%= session.staged_root %>/proxy.py"
