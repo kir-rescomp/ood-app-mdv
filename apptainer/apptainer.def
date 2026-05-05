@@ -112,16 +112,20 @@ if ! pg_ctl status -D "${PGDATA}" > /dev/null 2>&1; then
     if [ ! -f "${PGDATA}/PG_VERSION" ]; then
         initdb -D "${PGDATA}" --auth=trust --username="${DB_USER}" > /dev/null
 
-        # Use TCP on localhost rather than a Unix socket.
-        # MDV constructs a standard postgresql://user:pass@HOST/db URI so the
-        # host field must be an IP/hostname, not a filesystem path.
-        cat >> "${PGDATA}/postgresql.conf" << PGCONF
-listen_addresses = '127.0.0.1'
-port = 5432
-log_destination = 'stderr'
-logging_collector = off
-PGCONF
+        # Write postgresql.conf additions as individual echo statements so that
+        # shell variables (MDV_DATA_DIR) expand correctly. A single-quoted heredoc
+        # would write them literally, which is not what we want.
+        #
+        # We connect via TCP on localhost. However postgres still needs to write
+        # a lock file somewhere; /var/run/postgresql is read-only inside Apptainer
+        # so we redirect unix_socket_directories to our writable data directory.
+        echo "listen_addresses = '127.0.0.1'"               >> "${PGDATA}/postgresql.conf"
+        echo "port = 5432"                                   >> "${PGDATA}/postgresql.conf"
+        echo "unix_socket_directories = '${MDV_DATA_DIR}'"  >> "${PGDATA}/postgresql.conf"
+        echo "log_destination = 'stderr'"                    >> "${PGDATA}/postgresql.conf"
+        echo "logging_collector = off"                       >> "${PGDATA}/postgresql.conf"
 
+        # Allow TCP connections from localhost without password
         echo "host all all 127.0.0.1/32 trust" >> "${PGDATA}/pg_hba.conf"
     fi
 
