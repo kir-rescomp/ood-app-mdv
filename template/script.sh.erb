@@ -29,7 +29,12 @@ export APPTAINER_BIND="/gpfs3/well,/gpfs3/users"
 export MDV_DATA_DIR
 export PORT="${BIND_PORT}"
 
+# This is to resolve https://github.com/kir-rescomp/ood-app-mdv/issues/13
+RNODE_PREFIX="/rnode/${host}/${BIND_PORT}"
+
 apptainer run \
+  --env SCRIPT_NAME="${RNODE_PREFIX}" \
+  --env MDV_API_ROOT="${RNODE_PREFIX}" \
   --bind "${MDV_DATA_DIR}:${MDV_DATA_DIR}" \
   --bind "${MDV_PROJECTS_DIR}:/app/mdv" \
   "${MDV_SIF}"
