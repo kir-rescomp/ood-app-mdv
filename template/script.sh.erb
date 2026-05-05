@@ -21,8 +21,16 @@ export APPTAINER_BIND="/gpfs3/well,/gpfs3/users"
 export MDV_DATA_DIR
 export PORT="${FLASK_PORT}"
 
+# This is to solve https://github.com/kir-rescomp/ood-app-mdv/issues/14
+export NUMBA_CACHE_DIR="${MDV_DATA_DIR}/numba_cache"
+export MPLCONFIGDIR="${MDV_DATA_DIR}/matplotlib"
+mkdir -p "${NUMBA_CACHE_DIR}" "${MPLCONFIGDIR}"
 # Start MDV container in background on internal port
 apptainer run \
+  --env NUMBA_CACHE_DIR="${MDV_DATA_DIR}/numba_cache" \
+  --env MPLCONFIGDIR="${MDV_DATA_DIR}/matplotlib" \
+  --env MDV_DATA_DIR="${MDV_DATA_DIR}" \
+  --env PORT="${FLASK_PORT}" \
   --bind "${MDV_DATA_DIR}:${MDV_DATA_DIR}" \
   --bind "${MDV_PROJECTS_DIR}:/app/mdv" \
   "${MDV_SIF}" &
