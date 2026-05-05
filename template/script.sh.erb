@@ -5,8 +5,8 @@ set -e
 # SIF file location - adjust to wherever you deploy mdv.sif on GPFS
 MDV_SIF="/gpfs3/well/kir-scratch/sansom/mat611/Github/ood-app-mdv/apptainer/mdv.sif"
 
-MDV_DATA_DIR="<%= mdv_data_dir %>"
-MDV_PROJECTS_DIR="<%= mdv_projects_dir %>"
+MDV_DATA_DIR="<%= context.mdv_data_dir %>"
+MDV_PROJECTS_DIR="<%= context.mdv_projects_dir %>"
 
 # OOD provides $PORT automatically for the Basic Server adapter
 echo "Starting MDV on ${HOSTNAME}:${PORT}"
@@ -27,7 +27,7 @@ export APPTAINER_BIND="/gpfs3/well,/gpfs3/users"
 #   /gpfs3 → /gpfs3 (so paths inside the container match outside - needed for any
 #             absolute paths MDV stores in its database)
 export MDV_DATA_DIR
-export PORT
+export PORT="${BIND_PORT}"
 
 apptainer run \
   --bind "${MDV_DATA_DIR}:${MDV_DATA_DIR}" \
