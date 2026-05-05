@@ -32,7 +32,10 @@ def websocket_bridge(client_sock, server_sock):
     """Bidirectional raw socket bridge for WebSocket connections."""
     def pipe(src, dst):
         try:
-            while chunk := src.recv(65536):
+            while True:
+                chunk = src.recv(65536)
+                if not chunk:
+                    break
                 dst.sendall(chunk)
         except Exception:
             pass
