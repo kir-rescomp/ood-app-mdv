@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
+# Load a modern python for the proxy script
+module use /apps/eb/el8/skylake/modules/all
+module load Python/3.10.8-GCCcore-12.2.0-bare
+
 MDV_SIF="/gpfs3/well/kir-scratch/sansom/mat611/Github/ood-app-mdv/apptainer/mdv.sif"
 MDV_DATA_DIR="<%= context.mdv_data_dir %>"
 MDV_PROJECTS_DIR="<%= context.mdv_projects_dir %>"
