@@ -1,40 +1,43 @@
 #!/usr/bin/env bash
 set -e
 
-# ── Paths ─────────────────────────────────────────────────────────────────────
-# SIF file location - adjust to wherever you deploy mdv.sif on GPFS
-MDV_SIF="/gpfs3/well/kir-scratch/sansom/mat611/Github/ood-app-mdv/apptainer/mdv.sif"
-
+MDV_SIF="/gpfs3/well/kir/apps/mdv/mdv.sif"
 MDV_DATA_DIR="<%= context.mdv_data_dir %>"
 MDV_PROJECTS_DIR="<%= context.mdv_projects_dir %>"
 
-# OOD provides $PORT automatically for the Basic Server adapter
-echo "Starting MDV on ${HOSTNAME}:${PORT}"
-echo "Projects directory: ${MDV_PROJECTS_DIR}"
-echo "Data directory:     ${MDV_DATA_DIR}"
+# Flask runs on an internal port; the proxy sits on BIND_PORT (what OOD knows about)
+FLASK_PORT=$((BIND_PORT + 1))
 
-# ── Create directories if they don't exist ────────────────────────────────────
+echo "$(date): Starting MDV"
+echo "  OOD proxy port : ${BIND_PORT}"
+echo "  Flask port     : ${FLASK_PORT}"
+echo "  Projects       : ${MDV_PROJECTS_DIR}"
+echo "  Data           : ${MDV_DATA_DIR}"
+
 mkdir -p "${MDV_DATA_DIR}"
 mkdir -p "${MDV_PROJECTS_DIR}"
 
-# Allow Apptainer to access GPFS filesystems
 export APPTAINER_BIND="/gpfs3/well,/gpfs3/users"
-
-# ── Launch MDV via Apptainer ──────────────────────────────────────────────────
-# Bind mounts:
-#   MDV_DATA_DIR → container-internal path for postgres/logs (referenced by start script)
-#   MDV_PROJECTS_DIR → /app/mdv (where MDV scans for and stores projects)
-#   /gpfs3 → /gpfs3 (so paths inside the container match outside - needed for any
-#             absolute paths MDV stores in its database)
 export MDV_DATA_DIR
-export PORT="${BIND_PORT}"
+export PORT="${FLASK_PORT}"
 
-# This is to resolve https://github.com/kir-rescomp/ood-app-mdv/issues/13
-RNODE_PREFIX="/rnode/${host}/${BIND_PORT}"
-
+# Start MDV container in background on internal port
 apptainer run \
-  --env SCRIPT_NAME="${RNODE_PREFIX}" \
-  --env MDV_API_ROOT="${RNODE_PREFIX}" \
   --bind "${MDV_DATA_DIR}:${MDV_DATA_DIR}" \
   --bind "${MDV_PROJECTS_DIR}:/app/mdv" \
-  "${MDV_SIF}"
+  "${MDV_SIF}" &
+CONTAINER_PID=$!
+
+# Wait for Flask to be ready before starting the proxy
+echo "Waiting for MDV to initialise..."
+for i in $(seq 1 90); do
+    if curl -sf "http://127.0.0.1:${FLASK_PORT}/" > /dev/null 2>&1; then
+        echo "$(date): MDV ready on port ${FLASK_PORT}"
+        break
+    fi
+    sleep 2
+done
+
+# Start the path-rewriting proxy on BIND_PORT (OOD connects here)
+FLASK_PORT=${FLASK_PORT} BIND_PORT=${BIND_PORT} \
+    python3 "<%= session.staged_root %>/proxy.py"
