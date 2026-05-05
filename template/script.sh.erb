@@ -17,6 +17,9 @@ echo "Data directory:     ${MDV_DATA_DIR}"
 mkdir -p "${MDV_DATA_DIR}"
 mkdir -p "${MDV_PROJECTS_DIR}"
 
+# Allow Apptainer to access GPFS filesystems
+export APPTAINER_BIND="/gpfs3/well,/gpfs3/users"
+
 # ── Launch MDV via Apptainer ──────────────────────────────────────────────────
 # Bind mounts:
 #   MDV_DATA_DIR → container-internal path for postgres/logs (referenced by start script)
@@ -29,5 +32,4 @@ export PORT
 apptainer run \
   --bind "${MDV_DATA_DIR}:${MDV_DATA_DIR}" \
   --bind "${MDV_PROJECTS_DIR}:/app/mdv" \
-  --bind /gpfs3:/gpfs3 \
   "${MDV_SIF}"
