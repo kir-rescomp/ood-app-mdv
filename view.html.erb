@@ -1,0 +1,11 @@
+<% if session.running? %>
+  <div class="row my-2">
+    <div class="col-md-12">
+      <a href="/rnode/<%= host %>/<%= port %>/"
+         target="_blank"
+         class="btn btn-primary btn-lg">
+        <i class="fa fa-chart-bar"></i> Connect to MDV
+      </a>
+    </div>
+  </div>
+<% end %>
