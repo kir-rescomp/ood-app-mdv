@@ -1,0 +1,10 @@
+# Export the module function if it exists
+[[ $(type -t module) == "function" ]] && export -f module
+
+# Find available port to run server on
+port=$(find_port ${host})
+export port
+export BIND_PORT=$port
+
+echo "Host: ${host}"
+echo "Port: ${port}"

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -e
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+# SIF file location - adjust to wherever you deploy mdv.sif on GPFS
+MDV_SIF="/gpfs3/well/kir-scratch/sansom/mat611/Github/ood-app-mdv/apptainer/mdv.sif"
+
+MDV_DATA_DIR="<%= context.mdv_data_dir %>"
+MDV_PROJECTS_DIR="<%= context.mdv_projects_dir %>"
+
+# OOD provides $PORT automatically for the Basic Server adapter
+echo "Starting MDV on ${HOSTNAME}:${PORT}"
+echo "Projects directory: ${MDV_PROJECTS_DIR}"
+echo "Data directory:     ${MDV_DATA_DIR}"
+
+# ── Create directories if they don't exist ────────────────────────────────────
+mkdir -p "${MDV_DATA_DIR}"
+mkdir -p "${MDV_PROJECTS_DIR}"
+
+# Allow Apptainer to access GPFS filesystems
+export APPTAINER_BIND="/gpfs3/well,/gpfs3/users"
+
+# ── Launch MDV via Apptainer ──────────────────────────────────────────────────
+# Bind mounts:
+#   MDV_DATA_DIR → container-internal path for postgres/logs (referenced by start script)
+#   MDV_PROJECTS_DIR → /app/mdv (where MDV scans for and stores projects)
+#   /gpfs3 → /gpfs3 (so paths inside the container match outside - needed for any
+#             absolute paths MDV stores in its database)
+export MDV_DATA_DIR
+export PORT="${BIND_PORT}"
+
+apptainer run \
+  --bind "${MDV_DATA_DIR}:${MDV_DATA_DIR}" \
+  --bind "${MDV_PROJECTS_DIR}:/app/mdv" \
+  "${MDV_SIF}"

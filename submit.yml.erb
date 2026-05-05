@@ -1,0 +1,9 @@
+batch_connect:
+  template: "basic"
+
+script:
+  native:
+    - "--cpus-per-task=<%= cores %>"
+    - "--mem=<%= ram %>G"
+    - "--time=<%= bc_num_hours %>:00:00"
+    - "--job-name=ood-mdv"
