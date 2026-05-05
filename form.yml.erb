@@ -1,13 +1,6 @@
 ---
 cluster: slurm
 attributes:
-  mdv_module:
-    label: MDV module
-    required: true
-    cachable: true
-    widget: select
-    options:
-
   extra_modules_script:
     label: Extra modules script
     help: If you'd like to load additional modules alongside MDV, put the 'module load ...' commands into a text file (one 'module load...' per line) and specify its path here
@@ -42,11 +35,30 @@ attributes:
   bc_email_on_started: false
   auto_modules_mdv_module:
     default: false
+
+  mdv_projects_dir:
+    widget: text_field
+    label: "MDV projects directory"
+    cachable: true
+    help: >
+      Directory where MDV will store and read your projects.
+      Must be on GPFS scratch — not your home directory.
+      Will be created if it does not exist.
+
+  mdv_data_dir:
+    widget: text_field
+    label: "MDV data directory"
+    cachable: true
+    help: >
+      Directory for MDV internal data (PostgreSQL database, logs).
+      Keep this consistent between sessions to preserve your project
+      database. Must be on GPFS scratch.
 form:
   - auto_queues
-  - mdv_module
   - extra_modules_script
   - cores
   - ram
   - bc_num_hours
   - bc_email_on_started
+  - mdv_projects_dir
+  - mdv_data_dir
