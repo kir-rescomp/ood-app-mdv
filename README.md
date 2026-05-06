@@ -16,6 +16,10 @@ before using, modifying, or redistributing MDV.
 
 # `template/proxy.py` 
 
+<p align="center">
+<img src="./apptainer/proxypy_architecture.svg" alt="proxy-arch" width="300"/>
+</p>
+
 MDV is designed to run as a standalone web server at the root path (`/`), with its Vite-built 
 frontend referencing static assets using absolute URLs such as `/flask/assets/catalog.css` and `/flask/js/mdv.js`.
 
