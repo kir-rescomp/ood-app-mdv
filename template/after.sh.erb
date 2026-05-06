@@ -1,0 +1,10 @@
+echo "$(date): Waiting for MDV to be ready on ${host}:${port}..."
+
+if wait_until_port_used "${host}:${port}" 300; then
+  echo "$(date): MDV is ready — connect button will now appear"
+else
+  echo "$(date): Timed out waiting for MDV to start after 300s"
+  clean_up 1
+fi
+
+sleep 2
