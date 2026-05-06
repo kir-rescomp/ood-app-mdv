@@ -17,7 +17,7 @@ before using, modifying, or redistributing MDV.
 # `template/proxy.py` 
 
 <p align="center">
-<img src="./apptainer/proxypy_architecture.svg" alt="proxy-arch" width="300"/>
+<img src="./apptainer/proxypy_architecture.svg" alt="proxy-arch" width="600"/>
 </p>
 
 MDV is designed to run as a standalone web server at the root path (`/`), with its Vite-built 
