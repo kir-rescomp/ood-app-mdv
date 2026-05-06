@@ -31,7 +31,7 @@ When the browser loads a page served at `https://ood-server/rnode/host/port/`, i
 errors for all static assets, leaving the application as a blank page.
 
 A secondary complication arises from nested routes. When a user opens a project, the page URL deepens to something 
-similar to `/rnode/host/port/project/1/``. Simply converting absolute paths to relative ones (e.g. `flask/assets/catalog.css`)
+similar to `/rnode/host/port/project/1/`. Simply converting absolute paths to relative ones (e.g. `flask/assets/catalog.css`)
 does not solve the problem here, because the browser would then resolve those relative paths against the current 
 sub-path, producing incorrect URLs such as `/rnode/host/port/project/1/flask/assets/catalog.css`.
 
