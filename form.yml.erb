@@ -43,8 +43,8 @@ attributes:
     value: ""
     help: >
       Directory where MDV will store and read your projects.
-      Must be on GPFS scratch — not your home directory.
-      Will be created if it does not exist.
+      ( Pleasse do not use home directory.)
+     
 
   mdv_data_dir:
     widget: text_field
@@ -54,7 +54,7 @@ attributes:
     help: >
       Directory for MDV internal data (PostgreSQL database, logs).
       Keep this consistent between sessions to preserve your project
-      database. Must be on GPFS scratch.
+      database. (Pleasse do not use home directory.)
 form:
   - auto_queues
   - extra_modules_script
