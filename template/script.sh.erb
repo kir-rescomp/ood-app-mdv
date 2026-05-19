@@ -2,10 +2,15 @@
 set -e
 
 # Load a modern python for the proxy script
-module use /apps/eb/el8/skylake/modules/all
+module use "/apps/eb/el8/skylake/modules/all"
+module use "/apps/kir/eb/skylake/modules/all"
 module load Python/3.10.8-GCCcore-12.2.0-bare
+module load <%= context.mdv_module %>
 
-MDV_SIF="/gpfs3/well/kir-scratch/sansom/mat611/Github/ood-app-mdv/apptainer/mdv.sif"
+# SIF path comes from the loaded module
+echo "MDV version : ${MDV_VERSION}"
+echo "SIF path    : ${MDV_SIF}"
+
 MDV_DATA_DIR="<%= context.mdv_data_dir %>"
 MDV_PROJECTS_DIR="<%= context.mdv_projects_dir %>"
 

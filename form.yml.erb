@@ -1,6 +1,15 @@
 ---
 cluster: slurm
 attributes:
+  mdv_module:
+    label: "MDV version"
+    widget: select
+    required: true
+    cachable: true
+    options:
+      - ["MDV (stable)", "MDV/main"]
+    help: "Select the version of MDV to launch."
+
   cores:
     label: Number of CPU cores
     help: How many CPU cores to reserve for your session. NB Ensure this is within the maximum allowed by your chosen partition.
@@ -28,8 +37,6 @@ attributes:
     value: 30
     cachable: true
   bc_email_on_started: false
-  auto_modules_mdv_module:
-    default: false
 
   mdv_projects_dir:
     widget: text_field
@@ -50,8 +57,10 @@ attributes:
       Directory for MDV internal data (PostgreSQL database, logs).
       Keep this consistent between sessions to preserve your project
       database. (Please do not use home directory.)
+
 form:
   - auto_queues
+  - mdv_module
   - cores
   - ram
   - bc_num_hours
