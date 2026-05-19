@@ -1,11 +1,6 @@
 ---
 cluster: slurm
 attributes:
-  extra_modules_script:
-    label: Extra modules script
-    help: If you'd like to load additional modules alongside MDV, put the 'module load ...' commands into a text file (one 'module load...' per line) and specify its path here
-    widget: text_field
-    required: false
   cores:
     label: Number of CPU cores
     help: How many CPU cores to reserve for your session. NB Ensure this is within the maximum allowed by your chosen partition.
@@ -43,7 +38,7 @@ attributes:
     value: ""
     help: >
       Directory where MDV will store and read your projects.
-      ( Pleasse do not use home directory.)
+      ( Please do not use home directory.)
      
 
   mdv_data_dir:
@@ -54,10 +49,9 @@ attributes:
     help: >
       Directory for MDV internal data (PostgreSQL database, logs).
       Keep this consistent between sessions to preserve your project
-      database. (Pleasse do not use home directory.)
+      database. (Please do not use home directory.)
 form:
   - auto_queues
-  - extra_modules_script
   - cores
   - ram
   - bc_num_hours
