@@ -23,8 +23,9 @@ From: nikolaik/python-nodejs:python3.12-nodejs22
     export VITE_BUILD_DATE="{{ BUILD_DATE }}"
     export VITE_GIT_DIRTY="{{ GIT_DIRTY }}"
 
-    # Python / uv project venv (uv creates .venv in the project dir by default)
+    # Python / Poetry
     export PIP_PREFER_BINARY=1
+    export POETRY_VIRTUALENVS_IN_PROJECT=true
     export PATH=/app/python/.venv/bin:$PATH
     export PYTHONPATH=/app/python
 
@@ -35,6 +36,7 @@ From: nikolaik/python-nodejs:python3.12-nodejs22
 %post
     export DEBIAN_FRONTEND=noninteractive
     export PIP_PREFER_BINARY=1
+    export POETRY_VIRTUALENVS_IN_PROJECT=true
 
     # ── System packages ───────────────────────────────────────────────────────
     apt-get update && apt-get install -y \
@@ -50,26 +52,23 @@ From: nikolaik/python-nodejs:python3.12-nodejs22
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-    # ── Pin uv (base image ships it via pip; match tool.uv.required-version) ──
-    pip install --no-cache-dir 'uv==0.11.14'
-
     # ── Clone MDV source ──────────────────────────────────────────────────────
     git clone --depth 1 https://github.com/Taylor-CCB-Group/MDV.git /app
 
-    # ── Python dependencies via uv ────────────────────────────────────────────
-    # Full source is already present (git clone), so a single sync installs both
-    # the dependencies AND the mdvtools project itself. uv creates .venv in the
-    # project directory by default, so it lives at /app/python/.venv.
+    # ── Configure Poetry (in-project venv so it lives at /app/python/.venv) ──
     cd /app/python
-    uv sync --frozen --group dev --group backend --group auth
-    uv run -- python -c "import flask; print('Flask OK')"
+    poetry config virtualenvs.in-project true
+    poetry install --with dev,backend,auth --no-root
+    poetry run python -c "import flask; print('Flask OK')"
 
-    # ── JS dependencies + frontend Vite build via pnpm ────────────────────────
+    # ── npm install + frontend Vite build ─────────────────────────────────────
     cd /app
-    corepack enable
-    pnpm config set script-shell "/bin/bash"
-    pnpm install --frozen-lockfile
-    pnpm run build-flask-dockerjs
+    npm install --cache /tmp/.npm-cache
+    npm run build-flask-dockerjs
+
+    # ── Install MDV Python package (root package, now source exists) ──────────
+    cd /app/python
+    poetry install --with dev,backend,auth
 
     # ── Permissions ───────────────────────────────────────────────────────────
     chmod -R a+rX /app/python/.venv
@@ -152,12 +151,9 @@ export MPLCONFIGDIR="${MDV_DATA_DIR}/matplotlib"
 mkdir -p "${MPLCONFIGDIR}"
 
 # ── Start Gunicorn ────────────────────────────────────────────────────────────
-# Call the venv's gunicorn directly rather than `uv run` - the SIF is read-only
-# and runs as the invoking user (not the build user), so `uv run` could attempt
-# to re-sync/write and fail. The venv binary needs nothing writable.
 echo "[mdv] Starting MDV on port ${PORT}..."
 cd /app/python
-exec /app/python/.venv/bin/gunicorn \
+exec poetry run gunicorn \
     -k gevent \
     -t 0 \
     -w 1 \
