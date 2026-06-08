@@ -11,8 +11,23 @@ module load <%= context.mdv_module %>
 echo "MDV version : ${MDV_VERSION}"
 echo "SIF path    : ${MDV_SIF}"
 
-MDV_DATA_DIR="<%= context.mdv_data_dir %>"
 MDV_PROJECTS_DIR="<%= context.mdv_projects_dir %>"
+
+# ── Per-session ephemeral data directory on node-local /tmp ───────────────────
+# Holds the PostgreSQL database, postgres logs, numba/matplotlib caches.
+# Made unique per OOD session so concurrent sessions never collide on the
+# postgres data dir / port 5432. The DB is rebuilt from MDV_PROJECTS_DIR on
+# startup, so projects persist even though this directory is disposable.
+MDV_DATA_DIR="/tmp/ondemand-mdv-<%= session.id %>"
+
+# Remove this session's data dir when the job ends (normal exit or SIGTERM from
+# scancel / walltime). SIGKILL can't be trapped - the sweep above is the backstop.
+cleanup() {
+    echo "$(date): Cleaning up ${MDV_DATA_DIR}"
+    kill "${CONTAINER_PID}" 2>/dev/null || true
+    rm -rf "${MDV_DATA_DIR}"
+}
+trap cleanup EXIT INT TERM
 
 # Flask runs on an internal port; the proxy sits on BIND_PORT (what OOD knows about)
 FLASK_PORT=$((BIND_PORT + 1))
