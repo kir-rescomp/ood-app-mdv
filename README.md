@@ -96,3 +96,27 @@ problem above. Relative paths appear to work until someone opens a project.
 **Strip `Content-Encoding` on the way out.** Flask gzips responses; `urllib` silently
 decompresses them. Forwarding the original `Content-Encoding` header makes the browser
 try to gunzip plain bytes. Drop the header and send a fresh `Content-Length`.
+
+
+## Runtime data
+
+MDV's internal data — the PostgreSQL cluster, logs and caches — lives in a per-session
+directory on **node-local `/tmp`**, keyed by the OOD session ID. Cleanup is via a `trap`
+on exit, with a stale-directory sweep as a backstop.
+
+The form asks only for the project directory, matching standard MDV startup.
+
+<details>
+<summary>Why not a user-supplied data directory?</summary>
+
+
+An earlier version had a second form field for a BMRC path. Three problems:
+
+1. **Shared paths collide.** Two sessions pointed at one data directory clash on the
+   PostgreSQL data directory and port 5432.
+2. **Group-write is not inherited.** On shared directories, group-write permissions
+   aren't inherited by default — sharing a directory meant manual checking each time.
+3. **Divergence from upstream.** Standard MDV startup asks only for the project
+   directory.
+
+</details>
