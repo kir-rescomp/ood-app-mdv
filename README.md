@@ -86,3 +86,13 @@ proxy to Flask regardless of the current page depth.
 
 WebSocket connections (used by MDV's socket.io real-time features) are handled separately via a raw socket bridge, 
 since HTTP-level proxying cannot perform the WebSocket protocol upgrade.
+
+
+### Constraints — don't undo these
+
+**Rewrite to the absolute rnode-prefixed path, not a relative one.** See the nested-route
+problem above. Relative paths appear to work until someone opens a project.
+
+**Strip `Content-Encoding` on the way out.** Flask gzips responses; `urllib` silently
+decompresses them. Forwarding the original `Content-Encoding` header makes the browser
+try to gunzip plain bytes. Drop the header and send a fresh `Content-Length`.
