@@ -34,6 +34,31 @@ On the compute node, inside one Apptainer container:
 The database is an index rebuilt from the projects directory at startup. The projects
 directory is the only thing that has to survive.
 
+## Version handling
+
+The container path lives in an Lmod module, not in the app config. The form offers a
+version dropdown; the chosen module is loaded at launch and exports `MDV_SIF`.
+
+```lua
+-- MDV/main.lua
+local version = "main"
+local sif = "/apps/.../MDV/mdv-" .. version .. ".sif"
+
+setenv("MDV_SIF",     sif)
+setenv("MDV_VERSION", version)
+```
+
+```bash
+# template/script.sh.erb
+module load <%= context.mdv_module %>
+apptainer run ... "${MDV_SIF}"
+```
+
+**To add a version:** build a SIF, drop in a `.lua`, add one line to the form dropdown.
+Nothing in the launch script changes.
+
+## 
+
 # `template/proxy.py` 
 
 
