@@ -1,4 +1,4 @@
-# Multi-Dimensional Viewer (MDV) app for BMRC OOD
+# Deploying Multi-Dimensional Viewer (MDV) via OpenOnDemand
 
 <p align="center">
 <img src="icon.png" alt="icon" width="400"/>
@@ -13,6 +13,26 @@ MDV itself is not covered by this license.
 All intellectual property rights for MDV remain with the original authors. Please refer to the [original license](https://github.com/Taylor-CCB-Group/MDV/blob/main/LICENSE) 
 before using, modifying, or redistributing MDV.
 
+## How a session starts
+
+```mermaid
+flowchart LR
+    B[Browser] -->|/rnode/host/port/...| R[OOD rnode]
+    R -->|strips prefix| P["proxy.py<br/>BIND_PORT"]
+    P -->|rewrites asset paths| F["Flask + Gunicorn<br/>BIND_PORT + 1"]
+```
+
+On the compute node, inside one Apptainer container:
+
+| Component          | Notes                                                    |
+| ------------------ | -------------------------------------------------------- |
+| Flask + Gunicorn   | `gevent` worker, serves the app and API                  |
+| Vite frontend      | Built at image time into `/app/dist`                     |
+| PostgreSQL         | Initialised per session, not a sidecar                   |
+| Projects directory | On GPFS, supplied by the user — persists across sessions |
+
+The database is an index rebuilt from the projects directory at startup. The projects
+directory is the only thing that has to survive.
 
 # `template/proxy.py` 
 
