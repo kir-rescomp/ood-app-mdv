@@ -1,3 +1,4 @@
+# cat form.yml.erb
 ---
 cluster: cluster
 attributes:
@@ -8,7 +9,8 @@ attributes:
     cachable: true
     options:
       - ["MDV (stable)", "MDV/main"]
-    help: "Select the version of MDV to launch."
+    help: |
+      Select the version of MDV to launch.
 
   cores:
     label: Number of CPU cores
@@ -39,15 +41,29 @@ attributes:
   bc_email_on_started: false
 
   mdv_projects_dir:
-    widget: text_field
     label: "MDV projects directory"
     cachable: true
     required: true
     value: ""
-    help: >
-      Directory where MDV will store and read your projects.
-      ( Please do not use home directory.)
-     
+    help: |
+      <div class="alert alert-info" role="alert">
+        <p>
+        Refer to <a href="https://mdv.ndm.ox.ac.uk/docs/documentation/creating-projects/" target="_blank" rel="noopener noreferrer">creating a project</a>
+        and make sure your project structure is in a compatible format.
+        If not, generate it using <strong>mdvtools</strong> as described in the documentation.
+        </p>
+        <p>
+        Path to <strong>MDV projects directory</strong> is the path to the <strong>parent</strong> directory where your MDV projects live
+        (not an individual project).
+        For example, if your projects are laid out like this:
+        </p>
+        <pre>/some/path/MDV/
+      ├── project1
+      └── project2</pre>
+        then enter the path to <code>/some/path/MDV</code>
+      </div>
+    widget: text_field
+
 form:
   - auto_queues
   - mdv_module
