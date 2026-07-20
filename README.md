@@ -4,10 +4,20 @@
 <img src="icon.png" alt="icon" width="400"/>
 </p>
 
+[Multi-Dimensional Viewer (MDV)](https://mdv.molbiol.ox.ac.uk/) is a tool for analyzing, annotating and sharing multi-dimensional data. 
+
+This repository packages MDV as an OpenOnDemand interactive app. MDV runs inside an
+Apptainer container on a compute node, with a small proxy in front of Flask to make its
+absolute asset paths work behind `rnode`. Developed and in production on the BMRC cluster
+at the University of Oxford, and intended to be portable to other OOD sites. For MDV
+itself, see the [upstream project](https://github.com/Taylor-CCB-Group/MDV).
+
+
+
 # License & Attribution
 
 The MIT license in this repository applies solely to the deployment scripts, configuration files, and documentation 
-provided here for running MDV (https://mdv.ndm.ox.ac.uk/) on the BMRC cluster OpenOnDemand service at the University of Oxford. 
+provided here for running MDV (https://mdv.ndm.ox.ac.uk/) via OpenOnDemand. 
 MDV itself is not covered by this license. 
 
 All intellectual property rights for MDV remain with the original authors. Please refer to the [original license](https://github.com/Taylor-CCB-Group/MDV/blob/main/LICENSE) 
