@@ -120,3 +120,13 @@ An earlier version had a second form field for a BMRC path. Three problems:
    directory.
 
 </details>
+
+
+
+
+> [!IMPORTANT]
+> Caches are rebuilt each session, so expect a ~90 s numba recompile on first launch.
+> This is the trade-off for the `/tmp` move, not a bug. Projects persist regardless — the
+> database is rebuilt from the projects directory.
+
+
