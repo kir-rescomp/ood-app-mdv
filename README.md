@@ -130,3 +130,15 @@ An earlier version had a second form field for a BMRC path. Three problems:
 > database is rebuilt from the projects directory.
 
 
+## Container gotchas
+
+Relevant when rebuilding the SIF from the upstream Dockerfile.
+
+**Apptainer has no build stages.** Multi-stage Docker builds have to be flattened; the
+whole build runs sequentially in `%post`.
+
+**PostgreSQL over TCP, not a Unix socket.** MDV constructs a `postgresql://host/db` URL,
+so a socket path won't fit.
+
+**`/var/run` is read-only.** Redirect the PostgreSQL lock file to writable space.
+
