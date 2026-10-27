@@ -61,7 +61,7 @@ From: nikolaik/python-nodejs:python3.12-nodejs22
     # the dependencies AND the mdvtools project itself. uv creates .venv in the
     # project directory by default, so it lives at /app/python/.venv.
     cd /app/python
-    uv sync --frozen --group dev --group backend --group auth
+    uv sync --frozen --group dev --extra app
     uv run -- python -c "import flask; print('Flask OK')"
 
     # ── JS dependencies + frontend Vite build via pnpm ────────────────────────
