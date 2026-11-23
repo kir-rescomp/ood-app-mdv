@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-# Load a modern python for the proxy script
 module use "/apps/eb/el8/skylake/modules/all"
 module use "/apps/kir/eb/skylake/modules/all"
-module load Python/3.10.8-GCCcore-12.2.0-bare
 module load <%= context.mdv_module %>
 
 # SIF path comes from the loaded module
@@ -24,17 +22,26 @@ MDV_DATA_DIR="/tmp/ondemand-mdv-<%= session.id %>"
 # scancel / walltime). SIGKILL can't be trapped - the sweep above is the backstop.
 cleanup() {
     echo "$(date): Cleaning up ${MDV_DATA_DIR}"
-    kill "${CONTAINER_PID}" 2>/dev/null || true
+    if [[ -n "${CONTAINER_PID:-}" ]]; then
+        kill "${CONTAINER_PID}" 2>/dev/null || true
+    fi
     rm -rf "${MDV_DATA_DIR}"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+# Exit on a signal so the EXIT trap runs once, straight away.
+trap 'exit 143' TERM
+trap 'exit 130' INT
 
-# Flask runs on an internal port; the proxy sits on BIND_PORT (what OOD knows about)
-FLASK_PORT=$((BIND_PORT + 1))
+# Gunicorn listens on BIND_PORT, the port OOD picked and connects to; there is no
+# proxy in between. rnode strips /rnode/<host>/<port> before requests reach MDV, and
+# MDV's pages load their assets by relative path, so nothing needs rewriting.
+# MDV_API_ROOT tells MDV the public prefix, for the API and socket.io URLs it hands
+# the browser and for the redirect after login.
+MDV_API_ROOT="/rnode/${host}/${BIND_PORT}/"
 
 echo "$(date): Starting MDV"
-echo "  OOD proxy port : ${BIND_PORT}"
-echo "  Flask port     : ${FLASK_PORT}"
+echo "  Port           : ${BIND_PORT}"
+echo "  Public root    : ${MDV_API_ROOT}"
 echo "  Projects       : ${MDV_PROJECTS_DIR}"
 echo "  Data           : ${MDV_DATA_DIR}"
 
@@ -43,35 +50,27 @@ mkdir -p "${MDV_PROJECTS_DIR}"
 
 export APPTAINER_BIND="/gpfs3/well,/gpfs3/users,/exafs1/well"
 export MDV_DATA_DIR
-export PORT="${FLASK_PORT}"
+export PORT="${BIND_PORT}"
+export MDV_API_ROOT
 
 # This is to solve https://github.com/kir-rescomp/ood-app-mdv/issues/14
 export NUMBA_CACHE_DIR="${MDV_DATA_DIR}/numba_cache"
 export MPLCONFIGDIR="${MDV_DATA_DIR}/matplotlib"
 mkdir -p "${NUMBA_CACHE_DIR}" "${MPLCONFIGDIR}"
-# Start MDV container in background on internal port
+
+# Run the container in the background and wait on it, rather than running it in the
+# foreground: bash only runs a trap once the foreground command returns, but `wait`
+# returns as soon as a signal arrives. The job lives as long as the container does.
+# after.sh waits for MDV to answer on BIND_PORT before OOD shows the Connect button.
 apptainer run \
   --env NUMBA_CACHE_DIR="${MDV_DATA_DIR}/numba_cache" \
   --env MPLCONFIGDIR="${MDV_DATA_DIR}/matplotlib" \
   --env MDV_DATA_DIR="${MDV_DATA_DIR}" \
-  --env PORT="${FLASK_PORT}" \
+  --env PORT="${BIND_PORT}" \
+  --env MDV_API_ROOT="${MDV_API_ROOT}" \
   --bind "${MDV_DATA_DIR}:${MDV_DATA_DIR}" \
   --bind "${MDV_PROJECTS_DIR}:/app/mdv" \
   "${MDV_SIF}" &
 CONTAINER_PID=$!
 
-# Wait for Flask to be ready before starting the proxy
-echo "Waiting for MDV to initialise..."
-for i in $(seq 1 90); do
-    if curl -sf "http://127.0.0.1:${FLASK_PORT}/" > /dev/null 2>&1; then
-        echo "$(date): MDV ready on port ${FLASK_PORT}"
-        break
-    fi
-    sleep 2
-done
-
-# Start the path-rewriting proxy on BIND_PORT (OOD connects here)
-FLASK_PORT=${FLASK_PORT} \
-BIND_PORT=${BIND_PORT} \
-RNODE_PREFIX="${host}/${BIND_PORT}" \
-    python3 "<%= session.staged_root %>/proxy.py"
+wait "${CONTAINER_PID}"

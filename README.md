@@ -7,8 +7,8 @@
 [Multi-Dimensional Viewer (MDV)](https://mdv.molbiol.ox.ac.uk/) is a tool for analyzing, annotating and sharing multi-dimensional data. 
 
 This repository packages MDV as an OpenOnDemand interactive app. MDV runs inside an
-Apptainer container on a compute node, with a small proxy in front of Flask to make its
-absolute asset paths work behind `rnode`. Developed and in production on the BMRC cluster
+Apptainer container on a compute node, with OOD's `rnode` proxy talking straight to
+Gunicorn. Developed and in production on the BMRC cluster
 at the University of Oxford, and intended to be portable to other OOD sites. For MDV
 itself, see the [upstream project](https://github.com/Taylor-CCB-Group/MDV).
 
@@ -28,8 +28,7 @@ before using, modifying, or redistributing MDV.
 ```mermaid
 flowchart LR
     B[Browser] -->|/rnode/host/port/...| R[OOD rnode]
-    R -->|strips prefix| P["proxy.py<br/>BIND_PORT"]
-    P -->|rewrites asset paths| F["Flask + Gunicorn<br/>BIND_PORT + 1"]
+    R -->|strips prefix| F["Flask + Gunicorn<br/>BIND_PORT"]
 ```
 
 On the compute node, inside one Apptainer container:
@@ -67,46 +66,41 @@ apptainer run ... "${MDV_SIF}"
 **To add a version:** build a SIF, drop in a `.lua`, add one line to the form dropdown.
 Nothing in the launch script changes.
 
-## 
+## Serving MDV behind `rnode`
 
-# `template/proxy.py` 
+OpenOnDemand's reverse proxy (`rnode`) serves the app at `/rnode/<hostname>/<port>/` and
+strips that prefix before forwarding, so MDV always sees requests at its own root. Two
+things make that work without a proxy of our own:
 
+- **MDV's pages load assets by relative path** (`../` once per level of the page's path,
+  so a project page at `/project/1/` still reaches `/flask/assets/...`). This needs a SIF
+  built from MDV at or after Taylor-CCB-Group/MDV#571 (20 October 2026); older builds
+  used absolute `/flask/` paths, which only worked through the old `proxy.py` rewrite.
+- **`MDV_API_ROOT` is set to `/rnode/<hostname>/<port>/`.** MDV hands this prefix to the
+  browser for API and socket.io URLs, and uses it for the redirect after login and, when
+  auth is on, as the session cookie path.
 
-MDV is designed to run as a standalone web server at the root path (`/`), with its Vite-built 
-frontend referencing static assets using absolute URLs such as `/flask/assets/catalog.css` and `/flask/js/mdv.js`.
+Gunicorn listens on the port OOD picked (`BIND_PORT`), and `after.sh` waits until it
+answers over HTTP before OOD shows the Connect button. socket.io's WebSocket traffic
+goes through `rnode` directly.
 
-OpenOnDemand's reverse proxy (`rnode`) works by routing requests through a URL of the form `/rnode/<hostname>/<port>/path`
-on the OOD server, stripping the `/rnode/<hostname>/<port>` prefix before forwarding to the application. This means 
-the application itself always receives requests at the correct path — but the browser does not know about the stripping. 
-When the browser loads a page served at `https://ood-server/rnode/host/port/`, it resolves absolute asset paths such as  
-`/flask/assets/catalog.css` relative to the OOD server root, not through the rnode proxy. The result is 404 or 500 
-errors for all static assets, leaving the application as a blank page.
+<details>
+<summary>Why there used to be a <code>proxy.py</code></summary>
 
-A secondary complication arises from nested routes. When a user opens a project, the page URL deepens to something 
-similar to `/rnode/host/port/project/1/`. Simply converting absolute paths to relative ones (e.g. `flask/assets/catalog.css`)
-does not solve the problem here, because the browser would then resolve those relative paths against the current 
-sub-path, producing incorrect URLs such as `/rnode/host/port/project/1/flask/assets/catalog.css`.
+Earlier MDV builds referenced assets as `/flask/...`, which the browser resolves against
+the OOD server root rather than through `rnode`. `proxy.py` sat on `BIND_PORT`, forwarded
+to Gunicorn on `BIND_PORT + 1`, and rewrote those paths in HTML. It was removed because:
 
-`proxy.py` solves this by sitting between OOD's rnode proxy and the MDV Flask application. Flask runs on an internal port 
-(`BIND_PORT + 1`), invisible to OOD. The proxy listens on `BIND_PORT` (the port OOD knows about) and forwards all requests to 
-Flask. For HTML responses specifically, it rewrites every absolute `/flask/` asset reference to a fully-qualified r
-node-prefixed path — for example `/flask/assets/catalog.css` becomes `/rnode/<hostname>/<port>/flask/assets/catalog.css`. 
-Because these are now absolute URLs that include the full rnode path, the browser routes them correctly through OOD's 
-proxy to Flask regardless of the current page depth.
+1. Its `ThreadingHTTPServer` kept Python's default listen queue of 5. A page load fetches
+   hundreds of JS/CSS chunks at once, and connections beyond the queue were dropped;
+   Apache turned them into "502 Proxy Error" pages, which the browser reported as
+   "Failed to fetch dynamically imported module" or "Unexpected token '<'"
+   ([#36](https://github.com/kir-rescomp/ood-app-mdv/issues/36)).
+2. `BIND_PORT + 1` was never checked for being free, so a session could start Gunicorn
+   on a port another session already held.
+3. Once MDV moved to relative asset paths, the rewrite no longer matched anything.
 
-WebSocket connections (used by MDV's socket.io real-time features) are handled separately via a raw socket bridge, 
-since HTTP-level proxying cannot perform the WebSocket protocol upgrade.
-
-
-### Constraints — don't undo these
-
-**Rewrite to the absolute rnode-prefixed path, not a relative one.** See the nested-route
-problem above. Relative paths appear to work until someone opens a project.
-
-**Strip `Content-Encoding` on the way out.** Flask gzips responses; `urllib` silently
-decompresses them. Forwarding the original `Content-Encoding` header makes the browser
-try to gunzip plain bytes. Drop the header and send a fresh `Content-Length`.
-
+</details>
 
 ## Runtime data
 
